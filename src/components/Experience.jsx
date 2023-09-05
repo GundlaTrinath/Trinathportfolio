@@ -17,10 +17,8 @@ export const Experience = () => {
             logo: "https://upload.wikimedia.org/wikipedia/commons/5/50/Zee_media_logo.svg",
             company: "Zee Media Corporation Limited",
             desg: "Python & NLP Intern",
-            content: ["● Developed static and dynamic web applications using React and Tailwind CSS.",
-                "● Implemented responsive designs for websites to ensure optimal user experience.",
-                "● Utilized Figma tool to design screens for the website, ensuring visually appealing user interfaces.",
-                "● Utilized Firebase for user authentication and storing user data."]
+            content: ["● Developed Multimedia Automation Software using Python libraries, such as Tkinter, SpeechRecognition, and DeepSpeech (STT/TTS).",
+                "● Implemented NLP technique \"Named Entity Extraction\" for multimedia information extraction using SpaCy and RoBERTa based on Transformers (BERT)."]
         }
     ]
     return (
