@@ -1,18 +1,13 @@
 {
   "files": {
-    "main.css": "/Trinathportfolio/static/css/main.02144871.css",
-    "main.js": "/Trinathportfolio/static/js/main.e12b39a7.js",
-    "static/media/python.png": "/Trinathportfolio/static/media/python.6a5cbc319ab3ddf8ef92.png",
-    "static/media/physics.png": "/Trinathportfolio/static/media/physics.86c8d9eba03e29814d2a.png",
-    "static/media/figma.png": "/Trinathportfolio/static/media/figma.72fbc535ebe253a5dbc4.png",
-    "static/media/html.png": "/Trinathportfolio/static/media/html.6e930594286d8afe4c79.png",
-    "static/media/css-3.png": "/Trinathportfolio/static/media/css-3.463e319bad8e0edf1ef7.png",
+    "main.css": "/Trinathportfolio/static/css/main.3815bfe9.css",
+    "main.js": "/Trinathportfolio/static/js/main.bf9aef26.js",
     "index.html": "/Trinathportfolio/index.html",
-    "main.02144871.css.map": "/Trinathportfolio/static/css/main.02144871.css.map",
-    "main.e12b39a7.js.map": "/Trinathportfolio/static/js/main.e12b39a7.js.map"
+    "main.3815bfe9.css.map": "/Trinathportfolio/static/css/main.3815bfe9.css.map",
+    "main.bf9aef26.js.map": "/Trinathportfolio/static/js/main.bf9aef26.js.map"
   },
   "entrypoints": [
-    "static/css/main.02144871.css",
-    "static/js/main.e12b39a7.js"
+    "static/css/main.3815bfe9.css",
+    "static/js/main.bf9aef26.js"
   ]
 }
