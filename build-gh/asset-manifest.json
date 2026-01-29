@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/Trinathportfolio/static/css/main.24781f71.css",
+    "main.js": "/Trinathportfolio/static/js/main.0b865eff.js",
+    "index.html": "/Trinathportfolio/index.html",
+    "main.24781f71.css.map": "/Trinathportfolio/static/css/main.24781f71.css.map",
+    "main.0b865eff.js.map": "/Trinathportfolio/static/js/main.0b865eff.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.24781f71.css",
+    "static/js/main.0b865eff.js"
+  ]
+}
