@@ -24,7 +24,7 @@
   "scripts": {
     "clean": "rimraf build-gh",
     "predeploy": "npm run build && xcopy build build-gh /E /I /Y",
-    "deploy": "gh-pages -d build-gh --no-history",
+    "deploy": "gh-pages -d build-gh",
     "start": "react-scripts start",
     "build": "react-scripts build"
   },
