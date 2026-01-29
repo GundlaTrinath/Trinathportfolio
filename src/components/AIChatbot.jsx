@@ -101,10 +101,11 @@ function AIChatbot({ setCursorVariant }) {
           clearTimeout(streamTimeout);
           if (chunk) {
             fullResponse += chunk;
-            // Use a function to avoid referencing fullResponse directly in loop
+            const currentResponse = fullResponse;
+            // eslint-disable-next-line no-loop-func
             setMessages(prev => prev.map(msg => 
               msg.id === aiMessageId 
-                ? { ...msg, text: msg.text + chunk }
+                ? { ...msg, text: currentResponse }
                 : msg
             ));
           }
