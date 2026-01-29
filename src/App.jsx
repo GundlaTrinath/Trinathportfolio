@@ -19,12 +19,10 @@ import {
 } from "react-icons/fa";
 import {
   SiPython,
-  SiReact,
   SiFlask,
   SiOpencv,
   SiMongodb,
   SiMysql,
-  SiTailwindcss,
 } from "react-icons/si";
 import AIChatbot from "./components/AIChatbot";
 

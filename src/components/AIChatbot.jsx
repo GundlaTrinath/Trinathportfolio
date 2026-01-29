@@ -28,7 +28,7 @@ function AIChatbot({ setCursorVariant }) {
         timestamp: new Date()
       }]);
     }
-  }, [isOpen]);
+  }, [isOpen, messages.length]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -101,9 +101,10 @@ function AIChatbot({ setCursorVariant }) {
           clearTimeout(streamTimeout);
           if (chunk) {
             fullResponse += chunk;
+            // Use a function to avoid referencing fullResponse directly in loop
             setMessages(prev => prev.map(msg => 
               msg.id === aiMessageId 
-                ? { ...msg, text: fullResponse }
+                ? { ...msg, text: msg.text + chunk }
                 : msg
             ));
           }
