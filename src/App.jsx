@@ -419,9 +419,9 @@ function ImmersiveProjects({ setCursorVariant }) {
     {
       title: "Multimodal Defect Intelligence System",
       subtitle: "Pratt & Whitney",
-      desc: "Multimodal AI chatbot to identify visually and textually similar historical defects using vision-based and text-based RAG pipelines. Improved matched defect case accuracy by ~30% and reduced investigation time by 35%.",
-      metrics: { accuracy: "+30%", time: "-35%", efficiency: "35%" },
-      tech: ["Python", "LangChain", "Ollama Vision", "RAG", "Flask", "MongoDB"],
+      desc: "Multimodal AI chatbot to identify visually and textually similar historical defects using vision-based and text-based RAG pipelines. Improved matched defect case accuracy by ~80% and reduced investigation time by 35%.",
+      metrics: { accuracy: "+80%", time: "-35%", efficiency: "35%" },
+      tech: ["Python", "LangChain", "Ollama Vision", "RAG", "Flask", "Chatbot"],
       gradient: "from-emerald-400 to-green-500",
       emoji: "👁️",
     },
