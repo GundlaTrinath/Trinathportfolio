@@ -179,8 +179,8 @@ export const portfolioKnowledge = {
     {
       role: "Software Engineer",
       company: "Anddhen Group",
-      duration: "Mar 2023 - Nov 2023",
-      type: "Full-time",
+      duration: "Jun 2022 - Nov 2022",
+      type: "Internship",
       location: "Remote",
       description: "Developed automated data extraction and standardization systems using Python, Pandas, Tesseract OCR, and OpenCV. Built automated pipelines to extract, clean, and normalize parts data across multiple file formats.",
       keyProjects: [
@@ -261,8 +261,8 @@ export const portfolioKnowledge = {
       {
         name: "Anddhen Group",
         role: "Software Engineer",
-        period: "Mar 2023 - Nov 2023",
-        type: "Full-time"
+        period: "Jun 2022 - Nov 2022",
+        type: "Internship"
       },
       {
         name: "Zee Media Corporation",
