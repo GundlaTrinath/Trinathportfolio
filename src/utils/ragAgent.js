@@ -1,7 +1,7 @@
 import { portfolioKnowledge } from '../data/portfolioKnowledge';
 
 // Prefix with CORS Proxy for direct browser requests
-const NVIDIA_API_URL = 'https://corsproxy.io/?' + encodeURIComponent('https://integrate.api.nvidia.com/v1/chat/completions');
+const NVIDIA_API_URL = 'https://integrate.api.nvidia.com/v1/chat/completions';
 const NVIDIA_MODEL = 'meta/llama-3.1-8b-instruct';
 
 // Response cache to reduce API calls
@@ -203,12 +203,16 @@ async function* tryNvidiaAPI(userQuery, conversationHistory) {
     clearTimeout(timeoutId);
 
     if (!response.ok) {
+      const errorText = await response.text().catch(() => '');
       if (response.status === 429) {
         throw new Error('Rate limit exceeded. Please wait a moment and try again.');
       } else if (response.status === 401) {
         throw new Error('Invalid API key. Please check your NVIDIA API key.');
+      } else if (response.status === 403) {
+        throw new Error('Access forbidden (403). Check API key permissions or proxy.');
+      } else {
+        throw new Error(`NVIDIA API Error (${response.status}): ${errorText || response.statusText}`);
       }
-      return null;
     }
 
     const reader = response.body.getReader();
@@ -261,7 +265,7 @@ async function* tryNvidiaAPI(userQuery, conversationHistory) {
   }
 }
 
-// Main streaming function
+// AFTER (FIX):
 export async function* streamRAGAgent(userQuery, conversationHistory = []) {
   // Check cache first
   const cacheKey = userQuery.toLowerCase().trim();
@@ -275,9 +279,9 @@ export async function* streamRAGAgent(userQuery, conversationHistory = []) {
     return;
   }
 
-  // Call NVIDIA API
-  const nvidiaGenerator = tryNvidiaAPI(userQuery, conversationHistory);
-  if (nvidiaGenerator) {
+  // Call NVIDIA API with error catching
+  try {
+    const nvidiaGenerator = tryNvidiaAPI(userQuery, conversationHistory);
     let hasContent = false;
     for await (const chunk of nvidiaGenerator) {
       if (chunk) {
@@ -286,11 +290,13 @@ export async function* streamRAGAgent(userQuery, conversationHistory = []) {
       }
     }
     if (hasContent) return;
+  } catch (error) {
+    // Yield the actual error message so you can see what went wrong
+    yield `⚠️ **API Error:** ${error.message}\n\n`;
   }
 
   // Fallback response if API fails or key is missing
-  const errorMessage = `I apologize, but I'm currently unable to connect to the AI service. However, I can still help you with information from Trinath's portfolio!\n\n📧 **Contact:** [trinathgundla358@gmail.com](mailto:trinathgundla358@gmail.com)\n🔗 **LinkedIn:** [linkedin.com/in/trinath-gundla-298828210](https://linkedin.com/in/trinath-gundla-298828210)\n📄 **Resume:** [Download Resume PDF](https://gundlatrinath.github.io/Trinathportfolio/Trinath_Gundla_AI_Software_Engineer.pdf)`;
-  
+  const errorMessage = `I apologize, but I'm currently unable to connect to the AI service. However, I can still help you with information from Trinath's portfolio!`;
   const words = errorMessage.split(' ');
   for (const word of words) {
     yield word + ' ';
