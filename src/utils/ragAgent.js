@@ -167,7 +167,7 @@ async function* tryNvidiaAPI(userQuery, conversationHistory) {
     return null;
   }
 
-  const userMessage = buildUserMessage(userQuery, conversationHistory);gre
+  const userMessage = buildUserMessage(userQuery, conversationHistory);
   const systemPrompt = buildSystemPrompt(userQuery, conversationHistory);
 
   try {
