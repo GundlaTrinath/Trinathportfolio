@@ -368,7 +368,7 @@ function AIChatbot({ setCursorVariant }) {
                 </motion.button>
               </div>
               <p className="text-xs text-gray-500 mt-2 text-center">
-                Powered by Groq (Llama 3.1 8B) • Streaming responses
+                Powered by NVIDIA Build (Llama 3.1 405B) • Streaming responses
               </p>
             </div>
           </motion.div>
