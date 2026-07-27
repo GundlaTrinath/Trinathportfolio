@@ -5,15 +5,19 @@ on:
     branches:
       - main
 
+# Permissions required for JamesIves deployment action
+permissions:
+  contents: write
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 20
 
@@ -21,7 +25,10 @@ jobs:
         run: npm install
 
       - name: Build Application
-        run: CI=false npm run build
+        env:
+          CI: false
+          REACT_APP_NVIDIA_API_KEY: ${{ secrets.REACT_APP_NVIDIA_API_KEY }}
+        run: npm run build
 
       - name: Deploy to gh-pages
         uses: JamesIves/github-pages-deploy-action@v4
