@@ -1,8 +1,9 @@
 import { portfolioKnowledge } from '../data/portfolioKnowledge';
 
 // API Configuration - Using NVIDIA Build API (Free tier/credits)
+// API Configuration - Using NVIDIA Build API
 const NVIDIA_API_URL = 'https://integrate.api.nvidia.com/v1/chat/completions';
-const NVIDIA_MODEL = 'meta/llama-3.1-405b-instruct'; // You can also use 'meta/llama-3.1-70b-instruct' or 'meta/llama-3.1-8b-instruct'
+const NVIDIA_MODEL = 'meta/llama-3.1-8b-instruct';
 
 // Response cache to reduce API calls
 const responseCache = new Map();
@@ -166,7 +167,7 @@ async function* tryNvidiaAPI(userQuery, conversationHistory) {
     return null;
   }
 
-  const userMessage = buildUserMessage(userQuery, conversationHistory);
+  const userMessage = buildUserMessage(userQuery, conversationHistory);gre
   const systemPrompt = buildSystemPrompt(userQuery, conversationHistory);
 
   try {
@@ -300,5 +301,5 @@ export async function* streamRAGAgent(userQuery, conversationHistory = []) {
 
 // Get greeting message
 export function getGreetingMessage() {
-  return `Hello! 👋 I'm Trinath's **Agentic AI Assistant** powered by NVIDIA Build.\n\nHow can I help you explore Trinath's portfolio today?`;
+  return `Hello! 👋 I'm Trinath's **Agentic AI Assistant** powered by NVIDIA Build (Llama 3.1 8B).\n\nHow can I help you explore Trinath's portfolio today?`;
 }
