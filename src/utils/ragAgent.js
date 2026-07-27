@@ -1,26 +1,15 @@
 import { portfolioKnowledge } from '../data/portfolioKnowledge';
 
-// API Configuration - Using Groq (Free, Fast, Reliable)
-const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const GROQ_MODEL = 'llama-3.1-8b-instant'; // Fast and free
-
-// Fallback to OpenRouter if Groq fails
-const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const OPENROUTER_MODELS = [
-  'google/gemini-2.0-flash-exp:free',
-  'meta-llama/llama-3.2-3b-instruct:free'
-];
+// API Configuration - Using NVIDIA Build API (Free tier/credits)
+const NVIDIA_API_URL = 'https://integrate.api.nvidia.com/v1/chat/completions';
+const NVIDIA_MODEL = 'meta/llama-3.1-405b-instruct'; // You can also use 'meta/llama-3.1-70b-instruct' or 'meta/llama-3.1-8b-instruct'
 
 // Response cache to reduce API calls
 const responseCache = new Map();
 
-// Get API keys from environment variables
-const getGroqApiKey = () => {
-  return process.env.REACT_APP_GROQ_API_KEY || '';
-};
-
-const getOpenRouterApiKey = () => {
-  return process.env.REACT_APP_OPENROUTER_API_KEY || '';
+// Get API key from environment variables
+const getNvidiaApiKey = () => {
+  return process.env.REACT_APP_NVIDIA_API_KEY || '';
 };
 
 // Agentic Features: Analyze user intent and conversation context
@@ -68,7 +57,7 @@ function analyzeIntent(userQuery, conversationHistory) {
     if (lastUserMsg && (
       query.includes('more') || 
       query.includes('also') || 
-      query.includes('what about') ||
+      query.includes('what about') || 
       query.includes('how about') ||
       query.length < 30
     )) {
@@ -82,6 +71,7 @@ function analyzeIntent(userQuery, conversationHistory) {
 // Generate proactive suggestions based on context
 function generateSuggestions(conversationHistory) {
   const askedAbout = new Set();
+  
   conversationHistory.forEach(msg => {
     const text = msg.text.toLowerCase();
     if (text.includes('skill')) askedAbout.add('skills');
@@ -166,14 +156,12 @@ function buildUserMessage(userQuery, conversationHistory = []) {
       historyContext += `${msg.sender === 'user' ? 'User' : 'Assistant'}: ${msg.text}\n`;
     });
   }
-
   return `${userQuery}${historyContext}`;
 }
 
-// Try Groq API first (most reliable) with agentic features
-async function* tryGroqAPI(userQuery, conversationHistory) {
-  const apiKey = getGroqApiKey();
-  
+// Try NVIDIA Build API
+async function* tryNvidiaAPI(userQuery, conversationHistory) {
+  const apiKey = getNvidiaApiKey();
   if (!apiKey) {
     return null;
   }
@@ -182,18 +170,18 @@ async function* tryGroqAPI(userQuery, conversationHistory) {
   const systemPrompt = buildSystemPrompt(userQuery, conversationHistory);
 
   try {
-    // Add timeout to prevent hanging
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
 
-    const response = await fetch(GROQ_API_URL, {
+    const response = await fetch(NVIDIA_API_URL, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Accept': 'text/event-stream'
       },
       body: JSON.stringify({
-        model: GROQ_MODEL,
+        model: NVIDIA_MODEL,
         messages: [
           { role: 'system', content: systemPrompt },
           ...conversationHistory
@@ -207,7 +195,7 @@ async function* tryGroqAPI(userQuery, conversationHistory) {
         ],
         stream: true,
         temperature: 0.7,
-        max_tokens: 1000
+        max_tokens: 1024
       }),
       signal: controller.signal
     });
@@ -215,36 +203,24 @@ async function* tryGroqAPI(userQuery, conversationHistory) {
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      // Handle specific error codes
       if (response.status === 429) {
         throw new Error('Rate limit exceeded. Please wait a moment and try again.');
       } else if (response.status === 401) {
-        throw new Error('Invalid API key. Please check your Groq API key.');
-      } else if (response.status >= 500) {
-        throw new Error('Service temporarily unavailable. Please try again in a moment.');
+        throw new Error('Invalid API key. Please check your NVIDIA API key.');
       }
       return null;
     }
-    
+
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
     let fullResponse = '';
     const cacheKey = userQuery.toLowerCase().trim();
 
-    let lastChunkTime = Date.now();
-    const STREAM_TIMEOUT = 60000; // 60 seconds timeout for stream
-
     while (true) {
-      // Check for stream timeout
-      if (Date.now() - lastChunkTime > STREAM_TIMEOUT) {
-        throw new Error('Stream timeout. The response is taking too long.');
-      }
-
       const { done, value } = await reader.read();
       if (done) break;
 
-      lastChunkTime = Date.now();
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split('\n');
       buffer = lines.pop() || '';
@@ -255,14 +231,9 @@ async function* tryGroqAPI(userQuery, conversationHistory) {
           if (data === '[DONE]') {
             if (fullResponse) {
               responseCache.set(cacheKey, fullResponse);
-              if (responseCache.size > 50) {
-                const firstKey = responseCache.keys().next().value;
-                responseCache.delete(firstKey);
-              }
             }
             return;
           }
-
           try {
             const json = JSON.parse(data);
             const content = json.choices?.[0]?.delta?.content;
@@ -270,129 +241,24 @@ async function* tryGroqAPI(userQuery, conversationHistory) {
               fullResponse += content;
               yield content;
             }
-            
-            // Check for errors in response
-            if (json.error) {
-              throw new Error(json.error.message || 'API returned an error');
-            }
           } catch (e) {
-            // Skip invalid JSON, but throw for actual errors
-            if (e.message && e.message.includes('error')) {
-              throw e;
-            }
+            // Skip invalid JSON chunks
           }
         }
       }
     }
 
-    // Cache successful response
     if (fullResponse) {
       responseCache.set(cacheKey, fullResponse);
     }
   } catch (error) {
-    // Re-throw specific errors so they can be handled upstream
     if (error.name === 'AbortError') {
       throw new Error('Request timeout. Please check your connection and try again.');
     } else if (error.message) {
-      throw error; // Re-throw with message
+      throw error;
     }
     return null;
   }
-}
-
-// Try OpenRouter as fallback with agentic features
-async function* tryOpenRouterAPI(userQuery, conversationHistory) {
-  const apiKey = getOpenRouterApiKey();
-  
-  if (!apiKey) {
-    return null;
-  }
-
-  const userMessage = buildUserMessage(userQuery, conversationHistory);
-  const systemPrompt = buildSystemPrompt(userQuery, conversationHistory);
-
-  // Try each OpenRouter model
-  for (const model of OPENROUTER_MODELS) {
-    try {
-      const response = await fetch(OPENROUTER_API_URL, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-          'HTTP-Referer': window.location.origin || 'https://gundlatrinath.github.io',
-          'X-Title': 'Trinath Portfolio AI Assistant'
-        },
-        body: JSON.stringify({
-          model: model,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            ...conversationHistory
-              .filter(msg => msg.sender === 'user' || msg.sender === 'ai')
-              .slice(-10)
-              .map(msg => ({
-                role: msg.sender === 'user' ? 'user' : 'assistant',
-                content: msg.text
-              })),
-            { role: 'user', content: userMessage }
-          ],
-          stream: true,
-          temperature: 0.7,
-          max_tokens: 1000
-        })
-      });
-
-      if (!response.ok) {
-        continue; // Try next model
-      }
-      
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      let fullResponse = '';
-      const cacheKey = userQuery.toLowerCase().trim();
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
-            if (data === '[DONE]') {
-              if (fullResponse) {
-                responseCache.set(cacheKey, fullResponse);
-              }
-              return;
-            }
-
-            try {
-              const json = JSON.parse(data);
-              const content = json.choices?.[0]?.delta?.content;
-              if (content) {
-                fullResponse += content;
-                yield content;
-              }
-            } catch (e) {
-              // Skip invalid JSON
-            }
-          }
-        }
-      }
-
-      if (fullResponse) {
-        responseCache.set(cacheKey, fullResponse);
-      }
-      return; // Success, exit
-    } catch (error) {
-      continue; // Try next model
-    }
-  }
-
-  return null; // All models failed
 }
 
 // Main streaming function
@@ -409,34 +275,21 @@ export async function* streamRAGAgent(userQuery, conversationHistory = []) {
     return;
   }
 
-  // Try Groq first (most reliable)
-  const groqGenerator = tryGroqAPI(userQuery, conversationHistory);
-  if (groqGenerator) {
+  // Call NVIDIA API
+  const nvidiaGenerator = tryNvidiaAPI(userQuery, conversationHistory);
+  if (nvidiaGenerator) {
     let hasContent = false;
-    for await (const chunk of groqGenerator) {
+    for await (const chunk of nvidiaGenerator) {
       if (chunk) {
         hasContent = true;
         yield chunk;
       }
     }
-    if (hasContent) return; // Success!
+    if (hasContent) return;
   }
 
-  // Fallback to OpenRouter
-  const openRouterGenerator = tryOpenRouterAPI(userQuery, conversationHistory);
-  if (openRouterGenerator) {
-    let hasContent = false;
-    for await (const chunk of openRouterGenerator) {
-      if (chunk) {
-        hasContent = true;
-        yield chunk;
-      }
-    }
-    if (hasContent) return; // Success!
-  }
-
-  // If all APIs failed, provide helpful information using knowledge base
-  const errorMessage = `I apologize, but I'm currently unable to connect to the AI services. However, I can still help you with information from Trinath's portfolio!\n\n**Here's what I can tell you:**\n\n📧 **Contact Information:**\n- Email: [trinathgundla358@gmail.com](mailto:trinathgundla358@gmail.com)\n- Phone: +91 8522994206\n- Location: Hyderabad, India\n\n🔗 **Professional Links:**\n- LinkedIn: [linkedin.com/in/trinath-gundla-298828210](https://linkedin.com/in/trinath-gundla-298828210)\n- GitHub: [github.com/GundlaTrinath](https://github.com/GundlaTrinath)\n- Portfolio: [gundlatrinath.github.io/Trinathportfolio](https://gundlatrinath.github.io/Trinathportfolio)\n\n📄 **Resume:**\n- [Download Resume PDF](https://gundlatrinath.github.io/Trinathportfolio/Trinath_Gundla_AI_Software_Engineer.pdf)\n\n**About Trinath:**\nAI Software Engineer with 2+ years of experience in AI/GenAI systems, specializing in RAG, LangChain, and multimodal AI pipelines. Currently working on enterprise AI solutions for clients like Pratt & Whitney and VALE.\n\nWould you like to know more about his skills, projects, or experience?`;
+  // Fallback response if API fails or key is missing
+  const errorMessage = `I apologize, but I'm currently unable to connect to the AI service. However, I can still help you with information from Trinath's portfolio!\n\n📧 **Contact:** [trinathgundla358@gmail.com](mailto:trinathgundla358@gmail.com)\n🔗 **LinkedIn:** [linkedin.com/in/trinath-gundla-298828210](https://linkedin.com/in/trinath-gundla-298828210)\n📄 **Resume:** [Download Resume PDF](https://gundlatrinath.github.io/Trinathportfolio/Trinath_Gundla_AI_Software_Engineer.pdf)`;
   
   const words = errorMessage.split(' ');
   for (const word of words) {
@@ -445,7 +298,7 @@ export async function* streamRAGAgent(userQuery, conversationHistory = []) {
   }
 }
 
-// Get greeting message with agentic touch
+// Get greeting message
 export function getGreetingMessage() {
-  return `Hello! 👋 I'm Trinath's **Agentic AI Assistant** powered by Groq.\n\nI can help you:\n✨ Explore his AI/ML projects and achievements\n🎯 Compare technologies and approaches\n💡 Get recommendations based on your interests\n🔍 Deep dive into specific areas of expertise\n\nWhat would you like to discover first?`;
+  return `Hello! 👋 I'm Trinath's **Agentic AI Assistant** powered by NVIDIA Build.\n\nHow can I help you explore Trinath's portfolio today?`;
 }
