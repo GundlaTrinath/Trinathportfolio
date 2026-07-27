@@ -1,8 +1,7 @@
 import { portfolioKnowledge } from '../data/portfolioKnowledge';
 
-// API Configuration - Using NVIDIA Build API (Free tier/credits)
-// API Configuration - Using NVIDIA Build API
-const NVIDIA_API_URL = 'https://integrate.api.nvidia.com/v1/chat/completions';
+// Prefix with CORS Proxy for direct browser requests
+const NVIDIA_API_URL = 'https://corsproxy.io/?' + encodeURIComponent('https://integrate.api.nvidia.com/v1/chat/completions');
 const NVIDIA_MODEL = 'meta/llama-3.1-8b-instruct';
 
 // Response cache to reduce API calls
