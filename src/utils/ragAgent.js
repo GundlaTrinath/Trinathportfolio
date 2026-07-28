@@ -1,16 +1,17 @@
 import { portfolioKnowledge } from '../data/portfolioKnowledge';
 
-// Prefix with CORS Proxy for direct browser requests
-const NVIDIA_API_URL = 'https://integrate.api.nvidia.com/v1/chat/completions';
-const NVIDIA_MODEL = 'meta/llama-3.1-8b-instruct';
+const NVIDIA_API_URL =
+  "https://nvidia-gateway-6h5d.vercel.app/api/chat";
 
-// Response cache to reduce API calls
+const NVIDIA_MODEL = "meta/llama-3.1-8b-instruct";
+
+// Cache responses
 const responseCache = new Map();
 
 // Get API key from environment variables
-const getNvidiaApiKey = () => {
-  return process.env.REACT_APP_NVIDIA_API_KEY || '';
-};
+// const getNvidiaApiKey = () => {
+//   return process.env.REACT_APP_NVIDIA_API_KEY || '';
+// };
 
 // Agentic Features: Analyze user intent and conversation context
 function analyzeIntent(userQuery, conversationHistory) {
@@ -161,150 +162,225 @@ function buildUserMessage(userQuery, conversationHistory = []) {
 
 // Try NVIDIA Build API
 async function* tryNvidiaAPI(userQuery, conversationHistory) {
-  const apiKey = getNvidiaApiKey();
-  if (!apiKey) {
-    return null;
-  }
 
   const userMessage = buildUserMessage(userQuery, conversationHistory);
-  const systemPrompt = buildSystemPrompt(userQuery, conversationHistory);
+
+  const systemPrompt = buildSystemPrompt(
+    userQuery,
+    conversationHistory
+  );
 
   try {
+
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+
+    const timeoutId = setTimeout(
+      () => controller.abort(),
+      30000
+    );
 
     const response = await fetch(NVIDIA_API_URL, {
-      method: 'POST',
+      method: "POST",
+
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'Accept': 'text/event-stream'
+        "Content-Type": "application/json"
       },
+
       body: JSON.stringify({
+
         model: NVIDIA_MODEL,
+
         messages: [
-          { role: 'system', content: systemPrompt },
+          {
+            role: "system",
+            content: systemPrompt
+          },
+
           ...conversationHistory
-            .filter(msg => msg.sender === 'user' || msg.sender === 'ai')
+            .filter(
+              msg =>
+                msg.sender === "user" ||
+                msg.sender === "ai"
+            )
             .slice(-10)
             .map(msg => ({
-              role: msg.sender === 'user' ? 'user' : 'assistant',
+              role:
+                msg.sender === "user"
+                  ? "user"
+                  : "assistant",
+
               content: msg.text
             })),
-          { role: 'user', content: userMessage }
+
+          {
+            role: "user",
+            content: userMessage
+          }
         ],
-        stream: true,
+
         temperature: 0.7,
+
         max_tokens: 1024
       }),
+
       signal: controller.signal
     });
 
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      const errorText = await response.text().catch(() => '');
-      if (response.status === 429) {
-        throw new Error('Rate limit exceeded. Please wait a moment and try again.');
-      } else if (response.status === 401) {
-        throw new Error('Invalid API key. Please check your NVIDIA API key.');
-      } else if (response.status === 403) {
-        throw new Error('Access forbidden (403). Check API key permissions or proxy.');
-      } else {
-        throw new Error(`NVIDIA API Error (${response.status}): ${errorText || response.statusText}`);
-      }
+
+      const errorText =
+        await response.text();
+
+      throw new Error(
+        `Gateway Error (${response.status}) : ${errorText}`
+      );
     }
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-    let fullResponse = '';
-    const cacheKey = userQuery.toLowerCase().trim();
+    const json = await response.json();
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+    const content =
+      json?.choices?.[0]?.message?.content || "";
 
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
+    if (content) {
 
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          const data = line.slice(6);
-          if (data === '[DONE]') {
-            if (fullResponse) {
-              responseCache.set(cacheKey, fullResponse);
-            }
-            return;
-          }
-          try {
-            const json = JSON.parse(data);
-            const content = json.choices?.[0]?.delta?.content;
-            if (content) {
-              fullResponse += content;
-              yield content;
-            }
-          } catch (e) {
-            // Skip invalid JSON chunks
-          }
-        }
-      }
+      responseCache.set(
+        userQuery.toLowerCase().trim(),
+        content
+      );
+
+      yield content;
     }
 
-    if (fullResponse) {
-      responseCache.set(cacheKey, fullResponse);
-    }
   } catch (error) {
-    if (error.name === 'AbortError') {
-      throw new Error('Request timeout. Please check your connection and try again.');
-    } else if (error.message) {
-      throw error;
+
+    if (error.name === "AbortError") {
+
+      throw new Error(
+        "Request timeout."
+      );
     }
-    return null;
+
+    throw error;
   }
+
 }
 
-// AFTER (FIX):
-export async function* streamRAGAgent(userQuery, conversationHistory = []) {
-  // Check cache first
-  const cacheKey = userQuery.toLowerCase().trim();
+export async function* streamRAGAgent(
+  userQuery,
+  conversationHistory = []
+) {
+
+  const cacheKey =
+    userQuery.toLowerCase().trim();
+
+  // Return cached response
   if (responseCache.has(cacheKey)) {
-    const cachedResponse = responseCache.get(cacheKey);
-    const words = cachedResponse.split(' ');
+
+    const cached =
+      responseCache.get(cacheKey);
+
+    const words = cached.split(" ");
+
     for (const word of words) {
-      yield word + ' ';
-      await new Promise(resolve => setTimeout(resolve, 30));
+
+      yield word + " ";
+
+      await new Promise(resolve =>
+        setTimeout(resolve, 25)
+      );
     }
+
     return;
   }
 
-  // Call NVIDIA API with error catching
   try {
-    const nvidiaGenerator = tryNvidiaAPI(userQuery, conversationHistory);
+
     let hasContent = false;
-    for await (const chunk of nvidiaGenerator) {
-      if (chunk) {
-        hasContent = true;
-        yield chunk;
-      }
+
+    const generator =
+      tryNvidiaAPI(
+        userQuery,
+        conversationHistory
+      );
+
+    for await (const chunk of generator) {
+
+      hasContent = true;
+
+      yield chunk;
     }
-    if (hasContent) return;
+
+    if (hasContent)
+      return;
+
   } catch (error) {
-    // Yield the actual error message so you can see what went wrong
-    yield `⚠️ **API Error:** ${error.message}\n\n`;
+
+    yield `⚠️ ${error.message}\n\n`;
+
   }
 
-  // Fallback response if API fails or key is missing
-  const errorMessage = `I apologize, but I'm currently unable to connect to the AI service. However, I can still help you with information from Trinath's portfolio!`;
-  const words = errorMessage.split(' ');
+  // Local fallback
+
+  const fallback = `
+I apologize, but I couldn't reach my AI backend.
+
+You can still ask me about:
+
+• AI Projects
+• Python
+• FastAPI
+• GenAI
+• RAG
+• LangChain
+• LangGraph
+• Vector Databases
+• OCR
+• Resume
+• Experience
+• Contact Information
+
+Please try again in a few moments.
+`;
+
+  const words =
+    fallback.split(" ");
+
   for (const word of words) {
-    yield word + ' ';
-    await new Promise(resolve => setTimeout(resolve, 30));
+
+    yield word + " ";
+
+    await new Promise(resolve =>
+      setTimeout(resolve, 25)
+    );
+
   }
+
 }
 
 // Get greeting message
 export function getGreetingMessage() {
-  return `Hello! 👋 I'm Trinath's **Agentic AI Assistant** powered by NVIDIA Build (Llama 3.1 8B).\n\nHow can I help you explore Trinath's portfolio today?`;
+
+  return `
+# 👋 Hello!
+
+I'm **Trinath's AI Portfolio Assistant**.
+
+I'm powered by **Meta Llama 3.1 8B** through an NVIDIA Build API running securely behind a Vercel gateway.
+
+I can answer questions about:
+
+• 🤖 AI & GenAI Projects
+• 💻 Python Development
+• ⚡ FastAPI APIs
+• 🧠 RAG Applications
+• 🔗 LangChain & LangGraph
+• 📄 Resume
+• 💼 Experience
+• 📧 Contact Information
+
+How can I help you today?
+`;
+
 }
