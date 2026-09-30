@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { FaRobot, FaTimes, FaPaperPlane, FaUser } from 'react-icons/fa';
-import { streamRAGAgent, getGreetingMessage } from '../utils/ragAgent';
+import { streamRAGAgent, getGreetingMessage, generateSuggestions, detectRelevantSection } from '../utils/ragAgent';
 
 // Request throttling - minimum time between requests (in ms)
 const MIN_REQUEST_INTERVAL = 3000; // 3 seconds
@@ -15,6 +15,7 @@ function AIChatbot({ setCursorVariant }) {
   const [isTyping, setIsTyping] = useState(false);
   const [streamingMessageId, setStreamingMessageId] = useState(null);
   const [lastRequestTime, setLastRequestTime] = useState(0);
+  const [suggestions, setSuggestions] = useState([]);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -27,6 +28,7 @@ function AIChatbot({ setCursorVariant }) {
         sender: 'ai',
         timestamp: new Date()
       }]);
+      setSuggestions(generateSuggestions([]));
     }
   }, [isOpen, messages.length]);
 
@@ -42,8 +44,9 @@ function AIChatbot({ setCursorVariant }) {
     }
   }, [isOpen]);
 
-  const handleSendMessage = async () => {
-    if (!inputValue.trim() || isTyping) return;
+  const handleSendMessage = async (overrideText) => {
+    const textToSend = (overrideText ?? inputValue).trim();
+    if (!textToSend || isTyping) return;
 
     // Check throttle
     const now = Date.now();
@@ -60,10 +63,11 @@ function AIChatbot({ setCursorVariant }) {
     }
     
     setLastRequestTime(now);
+    setSuggestions([]);
 
     const userMessage = {
       id: Date.now(),
-      text: inputValue.trim(),
+      text: textToSend,
       sender: 'user',
       timestamp: new Date()
     };
@@ -71,6 +75,17 @@ function AIChatbot({ setCursorVariant }) {
     setMessages(prev => [...prev, userMessage]);
     setInputValue('');
     setIsTyping(true);
+
+    // Interactive navigation: scroll the page to the section this question is about
+    const targetSection = detectRelevantSection(textToSend);
+    if (targetSection) {
+      const el = document.getElementById(targetSection);
+      if (el) {
+        setTimeout(() => {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 150);
+      }
+    }
 
     // Create placeholder for streaming response
     const aiMessageId = Date.now() + 1;
@@ -117,6 +132,7 @@ function AIChatbot({ setCursorVariant }) {
       }
 
       setStreamingMessageId(null);
+      setSuggestions(generateSuggestions([...messages, userMessage]));
     } catch (error) {
       let errorText = error.message || 'An unexpected error occurred.';
       
@@ -205,7 +221,7 @@ function AIChatbot({ setCursorVariant }) {
                 </div>
                 <div>
                   <h3 className="font-bold text-white">AI Assistant</h3>
-                  <p className="text-xs text-gray-400">Powered by Groq • Lightning Fast</p>
+                  <p className="text-xs text-gray-400">Powered by NVIDIA NIM • Lightning Fast</p>
                 </div>
               </div>
               <button
@@ -340,6 +356,27 @@ function AIChatbot({ setCursorVariant }) {
                 </motion.div>
               )}
 
+              {/* Contextual Suggestion Chips */}
+              {!isTyping && suggestions.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex flex-col gap-2 pl-11"
+                >
+                  {suggestions.map((suggestion, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => handleSendMessage(suggestion)}
+                      onMouseEnter={() => setCursorVariant("hover")}
+                      onMouseLeave={() => setCursorVariant("default")}
+                      className="text-left text-xs text-emerald-300 bg-emerald-400/10 border border-emerald-400/30 rounded-xl px-3 py-2 hover:bg-emerald-400/20 hover:border-emerald-400/50 transition-colors"
+                    >
+                      💡 {suggestion}
+                    </button>
+                  ))}
+                </motion.div>
+              )}
+
               <div ref={messagesEndRef} />
             </div>
 
@@ -357,7 +394,7 @@ function AIChatbot({ setCursorVariant }) {
                   disabled={isTyping}
                 />
                 <motion.button
-                  onClick={handleSendMessage}
+                  onClick={() => handleSendMessage()}
                   disabled={!inputValue.trim() || isTyping}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
@@ -370,7 +407,7 @@ function AIChatbot({ setCursorVariant }) {
                 </motion.button>
               </div>
               <p className="text-xs text-gray-500 mt-2 text-center">
-                Powered by Groq (Llama 3.1 8B) • Streaming responses
+                Powered by NVIDIA NIM (Llama 3.3 70B) • Streaming responses
               </p>
             </div>
           </motion.div>

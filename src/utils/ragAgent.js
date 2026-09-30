@@ -1,26 +1,20 @@
 import { portfolioKnowledge } from '../data/portfolioKnowledge';
 
-// API Configuration - Using Groq (Free, Fast, Reliable)
-const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const GROQ_MODEL = 'llama-3.1-8b-instant'; // Fast and free
-
-// Fallback to OpenRouter if Groq fails
-const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const OPENROUTER_MODELS = [
-  'google/gemini-2.0-flash-exp:free',
-  'meta-llama/llama-3.2-3b-instruct:free'
+// API Configuration - Using NVIDIA NIM (Free tier via build.nvidia.com API keys)
+// NOTE: 'meta/llama-3.1-8b-instruct' reached end-of-life (410 Gone) - using currently active models instead.
+const NVIDIA_API_URL = 'https://integrate.api.nvidia.com/v1/chat/completions';
+const NVIDIA_MODELS = [
+  'meta/llama-3.3-70b-instruct',
+  'nvidia/nvidia-nemotron-nano-9b-v2',
+  'meta/llama-3.2-3b-instruct'
 ];
 
 // Response cache to reduce API calls
 const responseCache = new Map();
 
-// Get API keys from environment variables
-const getGroqApiKey = () => {
-  return process.env.REACT_APP_GROQ_API_KEY || '';
-};
-
-const getOpenRouterApiKey = () => {
-  return process.env.REACT_APP_OPENROUTER_API_KEY || '';
+// Get API key from environment variables
+const getNvidiaApiKey = () => {
+  return process.env.REACT_APP_NVIDIA_API_KEY || '';
 };
 
 // Agentic Features: Analyze user intent and conversation context
@@ -79,8 +73,31 @@ function analyzeIntent(userQuery, conversationHistory) {
   return analysis;
 }
 
+// Maps a user query to a portfolio page section so the UI can auto-scroll to it.
+// Returns a DOM element id ("about" | "skills" | "projects" | "experience" | "resume" | "contact") or null.
+export function detectRelevantSection(userQuery) {
+  const query = userQuery.toLowerCase();
+
+  const sectionKeywords = [
+    { id: 'resume', keywords: ['resume', 'cv', 'download resume', 'pdf'] },
+    { id: 'contact', keywords: ['contact', 'email', 'phone number', 'reach out', 'get in touch', 'hire you', 'available for'] },
+    { id: 'experience', keywords: ['experience', 'job', 'career', 'timeline', 'work history', 'pratt', 'vale', 'anddhen', 'zee media', 'years of experience', 'internship', 'employment'] },
+    { id: 'projects', keywords: ['project', 'built', 'case study', 'defect intelligence', 'mining map', 'verification platform', 'parts data', 'built anything', 'portfolio work'] },
+    { id: 'skills', keywords: ['skill', 'tech stack', 'technology', 'technologies', 'proficient', 'expertise in', 'langchain', 'rag ', 'genai', 'python', 'flask', 'opencv', 'mongodb', 'mysql'] },
+    { id: 'about', keywords: ['about you', 'who are you', 'introduce yourself', 'tell me about yourself', 'your background', 'who is trinath'] },
+  ];
+
+  for (const section of sectionKeywords) {
+    if (section.keywords.some(keyword => query.includes(keyword))) {
+      return section.id;
+    }
+  }
+
+  return null;
+}
+
 // Generate proactive suggestions based on context
-function generateSuggestions(conversationHistory) {
+export function generateSuggestions(conversationHistory) {
   const askedAbout = new Set();
   conversationHistory.forEach(msg => {
     const text = msg.text.toLowerCase();
@@ -108,7 +125,13 @@ function buildSystemPrompt(userQuery, conversationHistory) {
   const intent = analyzeIntent(userQuery, conversationHistory);
   const suggestions = generateSuggestions(conversationHistory);
 
-  return `You are an intelligent AGENTIC AI assistant representing Trinath Gundla, an AI Software Engineer.
+  return `You are an intelligent AGENTIC AI assistant representing Trinath Gundla, an AI Software Engineer. You also double as a general-purpose knowledgeable assistant.
+
+**SCOPE OF KNOWLEDGE:**
+- You are NOT limited to portfolio topics. Freely and accurately answer general knowledge, coding, math, science, and technology questions (e.g. "what is Fibonacci", "explain recursion", "what is a REST API") just like a capable AI assistant would.
+- Use the PORTFOLIO KNOWLEDGE below whenever the question relates to Trinath (skills, projects, experience, contact, resume, etc.).
+- Never refuse a question just because it isn't about Trinath. Answer it directly and well.
+- When natural (not forced), you may briefly relate the answer back to Trinath's work (e.g. if asked about RAG, algorithms, or AI concepts, mention how he applied it in his projects) — but this is optional, not required.
 
 **AGENTIC CAPABILITIES:**
 You have advanced reasoning abilities:
@@ -170,10 +193,10 @@ function buildUserMessage(userQuery, conversationHistory = []) {
   return `${userQuery}${historyContext}`;
 }
 
-// Try Groq API first (most reliable) with agentic features
-async function* tryGroqAPI(userQuery, conversationHistory) {
-  const apiKey = getGroqApiKey();
-  
+// NVIDIA NIM API (free tier, OpenAI-compatible)
+async function* tryNvidiaAPI(userQuery, conversationHistory) {
+  const apiKey = getNvidiaApiKey();
+
   if (!apiKey) {
     return null;
   }
@@ -181,146 +204,15 @@ async function* tryGroqAPI(userQuery, conversationHistory) {
   const userMessage = buildUserMessage(userQuery, conversationHistory);
   const systemPrompt = buildSystemPrompt(userQuery, conversationHistory);
 
-  try {
-    // Add timeout to prevent hanging
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-
-    const response = await fetch(GROQ_API_URL, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: GROQ_MODEL,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...conversationHistory
-            .filter(msg => msg.sender === 'user' || msg.sender === 'ai')
-            .slice(-10)
-            .map(msg => ({
-              role: msg.sender === 'user' ? 'user' : 'assistant',
-              content: msg.text
-            })),
-          { role: 'user', content: userMessage }
-        ],
-        stream: true,
-        temperature: 0.7,
-        max_tokens: 1000
-      }),
-      signal: controller.signal
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      // Handle specific error codes
-      if (response.status === 429) {
-        throw new Error('Rate limit exceeded. Please wait a moment and try again.');
-      } else if (response.status === 401) {
-        throw new Error('Invalid API key. Please check your Groq API key.');
-      } else if (response.status >= 500) {
-        throw new Error('Service temporarily unavailable. Please try again in a moment.');
-      }
-      return null;
-    }
-    
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-    let fullResponse = '';
-    const cacheKey = userQuery.toLowerCase().trim();
-
-    let lastChunkTime = Date.now();
-    const STREAM_TIMEOUT = 60000; // 60 seconds timeout for stream
-
-    while (true) {
-      // Check for stream timeout
-      if (Date.now() - lastChunkTime > STREAM_TIMEOUT) {
-        throw new Error('Stream timeout. The response is taking too long.');
-      }
-
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      lastChunkTime = Date.now();
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
-
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          const data = line.slice(6);
-          if (data === '[DONE]') {
-            if (fullResponse) {
-              responseCache.set(cacheKey, fullResponse);
-              if (responseCache.size > 50) {
-                const firstKey = responseCache.keys().next().value;
-                responseCache.delete(firstKey);
-              }
-            }
-            return;
-          }
-
-          try {
-            const json = JSON.parse(data);
-            const content = json.choices?.[0]?.delta?.content;
-            if (content) {
-              fullResponse += content;
-              yield content;
-            }
-            
-            // Check for errors in response
-            if (json.error) {
-              throw new Error(json.error.message || 'API returned an error');
-            }
-          } catch (e) {
-            // Skip invalid JSON, but throw for actual errors
-            if (e.message && e.message.includes('error')) {
-              throw e;
-            }
-          }
-        }
-      }
-    }
-
-    // Cache successful response
-    if (fullResponse) {
-      responseCache.set(cacheKey, fullResponse);
-    }
-  } catch (error) {
-    // Re-throw specific errors so they can be handled upstream
-    if (error.name === 'AbortError') {
-      throw new Error('Request timeout. Please check your connection and try again.');
-    } else if (error.message) {
-      throw error; // Re-throw with message
-    }
-    return null;
-  }
-}
-
-// Try OpenRouter as fallback with agentic features
-async function* tryOpenRouterAPI(userQuery, conversationHistory) {
-  const apiKey = getOpenRouterApiKey();
-  
-  if (!apiKey) {
-    return null;
-  }
-
-  const userMessage = buildUserMessage(userQuery, conversationHistory);
-  const systemPrompt = buildSystemPrompt(userQuery, conversationHistory);
-
-  // Try each OpenRouter model
-  for (const model of OPENROUTER_MODELS) {
+  // Try each NVIDIA model in order until one succeeds
+  for (const model of NVIDIA_MODELS) {
     try {
-      const response = await fetch(OPENROUTER_API_URL, {
+      const response = await fetch(NVIDIA_API_URL, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
-          'HTTP-Referer': window.location.origin || 'https://gundlatrinath.github.io',
-          'X-Title': 'Trinath Portfolio AI Assistant'
+          'Accept': 'text/event-stream'
         },
         body: JSON.stringify({
           model: model,
@@ -342,9 +234,9 @@ async function* tryOpenRouterAPI(userQuery, conversationHistory) {
       });
 
       if (!response.ok) {
-        continue; // Try next model
+        continue; // Model unavailable/retired (e.g. 410 Gone) - try next model
       }
-      
+
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
@@ -392,7 +284,7 @@ async function* tryOpenRouterAPI(userQuery, conversationHistory) {
     }
   }
 
-  return null; // All models failed
+  return null; // All NVIDIA models failed
 }
 
 // Main streaming function
@@ -409,24 +301,11 @@ export async function* streamRAGAgent(userQuery, conversationHistory = []) {
     return;
   }
 
-  // Try Groq first (most reliable)
-  const groqGenerator = tryGroqAPI(userQuery, conversationHistory);
-  if (groqGenerator) {
+  // Try NVIDIA NIM
+  const nvidiaGenerator = tryNvidiaAPI(userQuery, conversationHistory);
+  if (nvidiaGenerator) {
     let hasContent = false;
-    for await (const chunk of groqGenerator) {
-      if (chunk) {
-        hasContent = true;
-        yield chunk;
-      }
-    }
-    if (hasContent) return; // Success!
-  }
-
-  // Fallback to OpenRouter
-  const openRouterGenerator = tryOpenRouterAPI(userQuery, conversationHistory);
-  if (openRouterGenerator) {
-    let hasContent = false;
-    for await (const chunk of openRouterGenerator) {
+    for await (const chunk of nvidiaGenerator) {
       if (chunk) {
         hasContent = true;
         yield chunk;
@@ -447,5 +326,5 @@ export async function* streamRAGAgent(userQuery, conversationHistory = []) {
 
 // Get greeting message with agentic touch
 export function getGreetingMessage() {
-  return `Hello! 👋 I'm Trinath's **Agentic AI Assistant** powered by Groq.\n\nI can help you:\n✨ Explore his AI/ML projects and achievements\n🎯 Compare technologies and approaches\n💡 Get recommendations based on your interests\n🔍 Deep dive into specific areas of expertise\n\nWhat would you like to discover first?`;
+  return `Hello! 👋 I'm Trinath's **Agentic AI Assistant** powered by NVIDIA NIM.\n\nI can help you:\n✨ Explore his AI/ML projects and achievements\n🎯 Compare technologies and approaches\n💡 Get recommendations based on your interests\n🔍 Deep dive into specific areas of expertise\n\nWhat would you like to discover first?`;
 }

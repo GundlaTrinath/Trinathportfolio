@@ -26,8 +26,7 @@ jobs:
       
       - name: Build with API keys
         env:
-          REACT_APP_GROQ_API_KEY: ${{ secrets.REACT_APP_GROQ_API_KEY }}
-          REACT_APP_OPENROUTER_API_KEY: ${{ secrets.REACT_APP_OPENROUTER_API_KEY }}
+          REACT_APP_NVIDIA_API_KEY: ${{ secrets.REACT_APP_NVIDIA_API_KEY }}
         run: npm run build
       
       - name: Copy build to build-gh

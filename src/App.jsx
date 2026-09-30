@@ -118,6 +118,7 @@ function MagneticHero({ setCursorVariant }) {
   return (
     <motion.section
       ref={heroRef}
+      id="about"
       style={{ opacity }}
       className="relative min-h-screen flex items-center justify-center overflow-hidden"
     >
@@ -342,7 +343,7 @@ function RevealSkills() {
   ];
 
   return (
-    <section className="py-24 md:py-40 px-6 relative overflow-hidden">
+    <section id="skills" className="py-24 md:py-40 px-6 relative overflow-hidden">
       
       <div className="container mx-auto max-w-7xl relative z-10">
         <motion.h2
@@ -453,7 +454,7 @@ function ImmersiveProjects({ setCursorVariant }) {
   ];
 
   return (
-    <section className="py-24 md:py-40 px-6 bg-zinc-950 relative overflow-hidden">
+    <section id="projects" className="py-24 md:py-40 px-6 bg-zinc-950 relative overflow-hidden">
       
       <div className="container mx-auto max-w-7xl relative z-10">
         <motion.h2
@@ -598,7 +599,7 @@ function FluidTimeline() {
   ];
 
   return (
-    <section className="py-24 md:py-40 px-6 relative overflow-hidden">
+    <section id="experience" className="py-24 md:py-40 px-6 relative overflow-hidden">
       <div className="absolute inset-0 opacity-10">
         <div
           className="absolute inset-0"
@@ -690,7 +691,7 @@ function TimelineItem({ experience, index }) {
 // Resume Download Section
 function ResumeDownloadSection({ setCursorVariant }) {
   return (
-    <section className="py-24 md:py-32 px-6 bg-gradient-to-br from-zinc-950 via-zinc-900 to-black relative overflow-hidden">
+    <section id="resume" className="py-24 md:py-32 px-6 bg-gradient-to-br from-zinc-950 via-zinc-900 to-black relative overflow-hidden">
       <div className="absolute inset-0 opacity-5">
         <div
           className="absolute inset-0"
@@ -748,7 +749,7 @@ function ResumeDownloadSection({ setCursorVariant }) {
 // Contact
 function ParticleContact({ setCursorVariant }) {
   return (
-    <section className="py-24 md:py-40 px-6 relative overflow-hidden bg-zinc-950">
+    <section id="contact" className="py-24 md:py-40 px-6 relative overflow-hidden bg-zinc-950">
       <div className="absolute inset-0 opacity-20">
         {[...Array(15)].map((_, i) => (
           <div
