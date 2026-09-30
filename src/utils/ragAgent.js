@@ -113,7 +113,7 @@ export function generateSuggestions(conversationHistory) {
     suggestions.push("Learn about my expertise in GenAI, RAG, and LangChain");
   }
   if (!askedAbout.has('experience')) {
-    suggestions.push("Discover my 2+ years of AI/ML engineering experience");
+    suggestions.push("Discover my 3+ years of AI/ML engineering experience");
   }
 
   return suggestions;
@@ -174,6 +174,7 @@ ${suggestions.length > 0 ? `\n**SUGGESTED NEXT TOPICS:**\n${suggestions.map(s =>
   - Email: [trinathgundla358@gmail.com](mailto:trinathgundla358@gmail.com)
 - **For Resume Download**: Always mention that users can download the resume and provide the link:
   - Resume: [Download Resume PDF](https://gundlatrinath.github.io/Trinathportfolio/Trinath_Gundla_AI_Software_Engineer.pdf)
+- **NEVER use markdown tables** (no "|---|" pipe/table syntax) under any circumstances. Present all structured information as plain text with **bold** labels and bullet/numbered lists instead.
 - Add emojis sparingly for engagement
 - Keep responses concise but comprehensive
 - End with a relevant follow-up question when appropriate`;
@@ -283,7 +284,7 @@ export async function* streamRAGAgent(userQuery, conversationHistory = []) {
   }
 
   // If all APIs failed, provide helpful information using knowledge base
-  const errorMessage = `I apologize, but I'm currently unable to connect to the AI services. However, I can still help you with information from Trinath's portfolio!\n\n**Here's what I can tell you:**\n\n📧 **Contact Information:**\n- Email: [trinathgundla358@gmail.com](mailto:trinathgundla358@gmail.com)\n- Phone: +91 8522994206\n- Location: Hyderabad, India\n\n🔗 **Professional Links:**\n- LinkedIn: [linkedin.com/in/trinath-gundla-298828210](https://linkedin.com/in/trinath-gundla-298828210)\n- GitHub: [github.com/GundlaTrinath](https://github.com/GundlaTrinath)\n- Portfolio: [gundlatrinath.github.io/Trinathportfolio](https://gundlatrinath.github.io/Trinathportfolio)\n\n📄 **Resume:**\n- [Download Resume PDF](https://gundlatrinath.github.io/Trinathportfolio/Trinath_Gundla_AI_Software_Engineer.pdf)\n\n**About Trinath:**\nAI Software Engineer with 2+ years of experience in AI/GenAI systems, specializing in RAG, LangChain, and multimodal AI pipelines. Currently working on enterprise AI solutions for clients like Pratt & Whitney and VALE.\n\nWould you like to know more about his skills, projects, or experience?`;
+  const errorMessage = `I apologize, but I'm currently unable to connect to the AI services. However, I can still help you with information from Trinath's portfolio!\n\n**Here's what I can tell you:**\n\n📧 **Contact Information:**\n- Email: [trinathgundla358@gmail.com](mailto:trinathgundla358@gmail.com)\n- Phone: +91 8522994206\n- Location: Hyderabad, India\n\n🔗 **Professional Links:**\n- LinkedIn: [linkedin.com/in/trinath-gundla-298828210](https://linkedin.com/in/trinath-gundla-298828210)\n- GitHub: [github.com/GundlaTrinath](https://github.com/GundlaTrinath)\n- Portfolio: [gundlatrinath.github.io/Trinathportfolio](https://gundlatrinath.github.io/Trinathportfolio)\n\n📄 **Resume:**\n- [Download Resume PDF](https://gundlatrinath.github.io/Trinathportfolio/Trinath_Gundla_AI_Software_Engineer.pdf)\n\n**About Trinath:**\nAI Software Engineer with 3+ years of experience in AI/GenAI systems, specializing in RAG, LangChain, and multimodal AI pipelines. Currently working on enterprise AI solutions for clients like Pratt & Whitney and VALE.\n\nWould you like to know more about his skills, projects, or experience?`;
   
   const words = errorMessage.split(' ');
   for (const word of words) {

@@ -22,7 +22,7 @@ export const portfolioKnowledge = {
   },
 
   summary: {
-    text: "AI Software Engineer with 2+ years of experience designing and deploying production-grade AI systems using Python, LangChain, and Retrieval-Augmented Generation (RAG). Proven expertise in building multimodal AI pipelines, semantic search, vector similarity systems, and AI automation solutions for enterprise use cases.",
+    text: "AI Software Engineer with 3+ years of experience designing and deploying production-grade AI systems using Python, LangChain, and Retrieval-Augmented Generation (RAG). Proven expertise in building multimodal AI pipelines, semantic search, vector similarity systems, and AI automation solutions for enterprise use cases.",
     expertise: [
       "Multimodal AI systems",
       "RAG (Retrieval-Augmented Generation)",

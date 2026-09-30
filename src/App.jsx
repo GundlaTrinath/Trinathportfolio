@@ -719,7 +719,7 @@ function ResumeDownloadSection({ setCursorVariant }) {
 
           <div className="grid grid-cols-3 gap-8 mt-16">
             {[
-              { value: "2+", label: "Years Experience" },
+              { value: "3+", label: "Years Experience" },
               { value: "15+", label: "Projects" },
               { value: "100%", label: "Dedication" },
             ].map((stat, idx) => (
