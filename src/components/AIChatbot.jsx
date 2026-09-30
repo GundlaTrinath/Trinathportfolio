@@ -407,7 +407,7 @@ function AIChatbot({ setCursorVariant }) {
                 </motion.button>
               </div>
               <p className="text-xs text-gray-500 mt-2 text-center">
-                Powered by NVIDIA NIM (Llama 3.3 70B) • Streaming responses
+                Powered by NVIDIA NIM • Streaming responses
               </p>
             </div>
           </motion.div>

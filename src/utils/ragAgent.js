@@ -1,21 +1,20 @@
 import { portfolioKnowledge } from '../data/portfolioKnowledge';
 
-// API Configuration - Using NVIDIA NIM (Free tier via build.nvidia.com API keys)
-// NOTE: 'meta/llama-3.1-8b-instruct' reached end-of-life (410 Gone) - using currently active models instead.
-const NVIDIA_API_URL = 'https://integrate.api.nvidia.com/v1/chat/completions';
+// API Configuration - NVIDIA NIM models, called through a serverless proxy (Vercel gateway).
+// IMPORTANT: NVIDIA's integrate.api.nvidia.com endpoint has no CORS headers, so it can NEVER
+// be called directly from a browser (GitHub Pages is a static site with no backend). All requests
+// must go through this gateway, which calls NVIDIA server-side and holds the API key server-side
+// (nothing secret ships in this bundle). NVIDIA also frequently retires free-tier models, so the
+// fallback list below is periodically re-verified against what the gateway currently accepts.
+const NVIDIA_API_URL = 'https://nvidia-gateway-6h5d.vercel.app/api/chat';
 const NVIDIA_MODELS = [
-  'meta/llama-3.3-70b-instruct',
-  'nvidia/nvidia-nemotron-nano-9b-v2',
-  'meta/llama-3.2-3b-instruct'
+  'openai/gpt-oss-20b',
+  'z-ai/glm-5.3',
+  'nvidia/nemotron-3-super-120b-a12b'
 ];
 
 // Response cache to reduce API calls
 const responseCache = new Map();
-
-// Get API key from environment variables
-const getNvidiaApiKey = () => {
-  return process.env.REACT_APP_NVIDIA_API_KEY || '';
-};
 
 // Agentic Features: Analyze user intent and conversation context
 function analyzeIntent(userQuery, conversationHistory) {
@@ -193,16 +192,14 @@ function buildUserMessage(userQuery, conversationHistory = []) {
   return `${userQuery}${historyContext}`;
 }
 
-// NVIDIA NIM API (free tier, OpenAI-compatible)
+// NVIDIA NIM API (free tier, OpenAI-compatible), proxied through the Vercel gateway.
+// NOTE: the gateway's SSE passthrough is unreliable (it can mangle the stream into a
+// malformed JSON blob), so we request a plain (non-streaming) completion and simulate
+// the typing effect client-side instead - this is robust and still feels like streaming.
 async function* tryNvidiaAPI(userQuery, conversationHistory) {
-  const apiKey = getNvidiaApiKey();
-
-  if (!apiKey) {
-    return null;
-  }
-
   const userMessage = buildUserMessage(userQuery, conversationHistory);
   const systemPrompt = buildSystemPrompt(userQuery, conversationHistory);
+  const cacheKey = userQuery.toLowerCase().trim();
 
   // Try each NVIDIA model in order until one succeeds
   for (const model of NVIDIA_MODELS) {
@@ -210,9 +207,7 @@ async function* tryNvidiaAPI(userQuery, conversationHistory) {
       const response = await fetch(NVIDIA_API_URL, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-          'Accept': 'text/event-stream'
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           model: model,
@@ -227,7 +222,7 @@ async function* tryNvidiaAPI(userQuery, conversationHistory) {
               })),
             { role: 'user', content: userMessage }
           ],
-          stream: true,
+          stream: false,
           temperature: 0.7,
           max_tokens: 1000
         })
@@ -237,46 +232,19 @@ async function* tryNvidiaAPI(userQuery, conversationHistory) {
         continue; // Model unavailable/retired (e.g. 410 Gone) - try next model
       }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      let fullResponse = '';
-      const cacheKey = userQuery.toLowerCase().trim();
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
-            if (data === '[DONE]') {
-              if (fullResponse) {
-                responseCache.set(cacheKey, fullResponse);
-              }
-              return;
-            }
-
-            try {
-              const json = JSON.parse(data);
-              const content = json.choices?.[0]?.delta?.content;
-              if (content) {
-                fullResponse += content;
-                yield content;
-              }
-            } catch (e) {
-              // Skip invalid JSON
-            }
-          }
-        }
+      const json = await response.json();
+      const fullResponse = json.choices?.[0]?.message?.content;
+      if (!fullResponse) {
+        continue; // Empty/unexpected response - try next model
       }
 
-      if (fullResponse) {
-        responseCache.set(cacheKey, fullResponse);
+      responseCache.set(cacheKey, fullResponse);
+
+      // Simulate streaming word-by-word for a consistent typing UX
+      const words = fullResponse.split(' ');
+      for (const word of words) {
+        yield word + ' ';
+        await new Promise(resolve => setTimeout(resolve, 30));
       }
       return; // Success, exit
     } catch (error) {
